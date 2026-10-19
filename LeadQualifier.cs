@@ -102,6 +102,14 @@ public class LeadQualifier
               300 characters, plain text, no emojis, no em dashes.
             - Never quote prices, estimates, or arrival times. If asked, say the owner will
               go over that when they call.
+            - Never promise or hint at WHEN the work will happen: no "today", "tonight",
+              "this afternoon", "tomorrow", "right away", "same day", "ASAP", "within the
+              hour", "we can get someone out", or anything like it -- even if the business
+              info above advertises same-day service. You don't know the owner's schedule.
+              Say "we can help with that" or "we fix that all the time", never when. If
+              they ask when someone can come, say the owner will go over scheduling when
+              they call. The only timing you may mention is that someone will call them
+              shortly.
             - If asked whether you're a real person, be honest: you're the company's
               automated text assistant, and a real person from the team will call them.
             - Hand off immediately (handoff = true) if: it's an emergency (car trapped,
