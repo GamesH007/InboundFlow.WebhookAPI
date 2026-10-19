@@ -1,18 +1,29 @@
 # InboundFlow.WebhookAPI
 
-Lightweight **C# (.NET 10) ASP.NET Core Minimal API** and **Entity Framework Core (SQLite)** webhook receiver engineered to capture missed inbound phone calls from Twilio and queue automated SMS lead recovery for B2B service contractors.
+**C# (.NET 10) ASP.NET Core Minimal API** with **Entity Framework Core (SQLite)** that turns missed calls into qualified leads for service contractors: a missed call triggers an instant text, an AI assistant (Gemini) qualifies the customer over SMS, and the business owner gets a ready-to-call summary.
 
-## Architecture & Tech Stack
-- **Runtime:** .NET 10 / ASP.NET Core Minimal API
-- **ORM & Persistence:** Entity Framework Core with local SQLite (inboundflow.db)
-- **Pattern:** Dependency-injected AppDbContext with automatic schema initialization and asynchronous POST webhook ingestion
+## How it works
+1. The contractor forwards unanswered calls to their Twilio number.
+2. Twilio hits `POST /api/webhooks/missed-call`. The caller hears a short "we're texting you" message, gets an intro text from the contractor's number, and the owner gets a heads-up text.
+3. The customer's replies hit `POST /api/webhooks/sms`. Gemini writes each reply and extracts the problem, name, address, urgency and best time. It never quotes prices or arrival times.
+4. Once it has enough (or on an emergency, a request for a human, or after 6 customer messages), the owner gets a summary text and the lead is marked `Qualified - handed off`. Later texts from that customer go straight to the owner.
+5. STOP / UNSUBSCRIBE etc. are recorded and the customer is never texted again; START re-enables.
 
-## Endpoints
-### POST /api/webhooks/missed-call
-Ingests missed-call webhook payloads and persists lead state for downstream SMS follow-up.
+Every webhook verifies `X-Twilio-Signature`; forged requests get a 401.
 
-**Sample Payload:**
-json
-{
-"From": "+15551234567"
-}
+## Configuration
+Environment variables (never put these in appsettings.json, which is committed):
+- `TWILIO_AUTH_TOKEN` (required): signature verification and sending.
+- `TWILIO_ACCOUNT_SID`: enables real SMS sending. **If unset, the app runs in dry-run mode and prints every text to the console instead of sending it.**
+- `GEMINI_API_KEY`: enables the AI assistant. If unset, customer replies are forwarded straight to the owner.
+- `GEMINI_MODEL` (optional): defaults to `gemini-flash-latest`.
+
+Clients live in `clients.json` next to the app (gitignored). Copy `clients.example.json` and fill in one entry per contractor; numbers must be E.164 (`+15551234567`).
+
+## Twilio number setup (per client)
+- Voice webhook ("A call comes in"): `POST https://<host>/api/webhooks/missed-call`
+- Messaging webhook ("A message comes in"): `POST https://<host>/api/webhooks/sms`
+- The number must sit on an approved A2P 10DLC campaign before it can text US customers.
+
+## Data
+SQLite `inboundflow.db`: `Leads`, `Messages` (full conversation per lead), `OptOuts`. Created automatically on first run. The schema is created with `EnsureCreated`, so after a model change on an existing database, delete it (test data) or add migrations (real data).
