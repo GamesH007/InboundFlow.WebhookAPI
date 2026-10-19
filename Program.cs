@@ -40,6 +40,7 @@ if (string.IsNullOrEmpty(geminiApiKey))
 const int MaxCustomerMessages = 6;
 var optOutWords = new HashSet<string> { "STOP", "STOPALL", "UNSUBSCRIBE", "CANCEL", "END", "QUIT", "REVOKE", "OPTOUT" };
 var optInWords = new HashSet<string> { "START", "UNSTOP", "YES" };
+var helpWords = new HashSet<string> { "HELP", "INFO" };
 
 // Replies are processed one at a time in the background: Twilio gives a
 // webhook ~15s before it gives up, and a Gemini call with retries can take
@@ -208,6 +209,21 @@ async Task HandleIncomingSms(IServiceProvider services, string from, string to, 
         Console.WriteLine($"[INFO] {from} opted out of {business.BusinessName}.");
         return;
     }
+
+    // HELP gets the business's contact line even from opted-out numbers --
+    // carriers expect it answered either way. Not a lead message, so no AI
+    // and no owner ping.
+    if (helpWords.Contains(keyword))
+    {
+        var contact = new List<string>();
+        if (!string.IsNullOrWhiteSpace(business.ContactPhone)) contact.Add($"call {business.ContactPhone}");
+        if (!string.IsNullOrWhiteSpace(business.ContactEmail)) contact.Add($"email {business.ContactEmail}");
+        var reachUs = contact.Count > 0 ? $" For help, {string.Join(" or ", contact)}." : "";
+        await sms.SendAsync(to, from, $"{business.BusinessName}:{reachUs} Reply STOP to opt out. Msg & data rates may apply.");
+        Console.WriteLine($"[INFO] {from} sent {keyword} to {business.BusinessName} -- help reply sent.");
+        return;
+    }
+
     var optOut = await db.OptOuts.FirstOrDefaultAsync(o => o.CustomerPhone == from && o.ClientPhoneNumber == to);
     if (optOut is not null)
     {

@@ -8,6 +8,7 @@
 3. The customer's replies hit `POST /api/webhooks/sms`. Gemini writes each reply and extracts the problem, name, address, urgency and best time. It never quotes prices or arrival times.
 4. Once it has enough (or on an emergency, a request for a human, or after 6 customer messages), the owner gets a summary text and the lead is marked `Qualified - handed off`. Later texts from that customer go straight to the owner.
 5. STOP / UNSUBSCRIBE etc. are recorded and the customer is never texted again; START re-enables.
+6. HELP / INFO get the business's contact line (`contactPhone` / `contactEmail` in clients.json), even from opted-out numbers. No AI, no owner ping.
 
 Every webhook verifies `X-Twilio-Signature`; forged requests get a 401.
 
@@ -18,7 +19,7 @@ Environment variables (never put these in appsettings.json, which is committed):
 - `GEMINI_API_KEY`: enables the AI assistant. If unset, customer replies are forwarded straight to the owner.
 - `GEMINI_MODEL` (optional): defaults to `gemini-flash-latest`.
 
-Clients live in `clients.json` next to the app (gitignored). Copy `clients.example.json` and fill in one entry per contractor; numbers must be E.164 (`+15551234567`).
+Clients live in `clients.json` next to the app (gitignored). Copy `clients.example.json` and fill in one entry per contractor; numbers must be E.164 (`+15551234567`). `contactPhone` and `contactEmail` (optional, the business's public contact details) go in the HELP reply; the app warns at startup if a client has neither.
 
 ## Twilio number setup (per client)
 - Voice webhook ("A call comes in"): `POST https://<host>/api/webhooks/missed-call`
