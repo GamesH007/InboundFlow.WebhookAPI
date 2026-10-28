@@ -12,6 +12,19 @@
 
 Every webhook verifies `X-Twilio-Signature`; forged requests get a 401.
 
+## Background queue
+Twilio gives a webhook about 15 seconds before it gives up, and a Gemini call with retries can take longer. So the SMS endpoint only puts the text into an in-memory queue (`Channel<IncomingSms>`) and answers Twilio straight away. `SmsQueueWorker`, a `BackgroundService`, takes the texts off the queue one at a time and hands each to `SmsConversationHandler` in its own DI scope (a fresh `DbContext` per text). One reader also means two quick texts from the same customer can't race each other into duplicate AI replies.
+
+Known limit: the queue lives in memory, so texts still waiting in it are lost if the app restarts or crashes. The durable fix is to save each text to the database first and queue its id.
+
+## Code layout
+- `Program.cs`: configuration, DI setup, the two webhook endpoints.
+- `SmsConversationHandler.cs`: what happens when a customer texts (keywords, AI reply, handoff).
+- `SmsQueueWorker.cs`: the `IncomingSms` record and the background worker.
+- `LeadQualifier.cs`: the Gemini prompt and response parsing.
+- `SmsSender.cs`: Twilio sending and the dry-run sender.
+- `Clients.cs`, `Models.cs`: client config and the EF Core entities.
+
 ## Configuration
 Environment variables (never put these in appsettings.json, which is committed):
 - `TWILIO_AUTH_TOKEN` (required): signature verification and sending.
